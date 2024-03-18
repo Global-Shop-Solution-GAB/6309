@@ -1,0 +1,466 @@
+Program.Sub.Preflight.Start
+Variable.UDT.RDATA.Define("DISPLAY_RTR",String,DISPLAY_RTR)
+Variable.UDT.RDATA.Define("DISPLAY_REV",String,DISPLAY_REV)
+Variable.UDT.RDATA.Define("DESCRIPTION",String,DESCRIPTION)
+Variable.UDT.RDATA.Define("GSSROUTER",String,GSSROUTER)
+Variable.UDT.RDATA.Define("ROUTER_SUFFIX",String,ROUTER_SUFFIX)
+Variable.UDT.RDATA.Define("FLAG_INACTIVE",String,FLAG_INACTIVE)
+
+Variable.UDT.INVDATA.Define("LOCATION",String,LOCATION)
+Variable.UDT.INVDATA.Define("DESCRIPTION",String,DESCRIPTION)
+Variable.UDT.INVDATA.Define("CUSTOMER",String,CUSTOMER)
+Variable.UDT.INVDATA.Define("CUSTOMER_PART",String,CUSTOMER_PART)
+Variable.UDT.INVDATA.Define("VENDOR",String,VENDOR)
+Variable.UDT.INVDATA.Define("MFG_NAME",String,MFG_NAME)
+Variable.UDT.INVDATA.Define("MFG_PART",String,MFG_PART)
+Variable.UDT.INVDATA.Define("COST",Float,COST)
+Variable.UDT.INVDATA.Define("NET",Float,NET)
+Variable.UDT.INVDATA.Define("ON_ORDER",Float,ON_ORDER)
+Variable.UDT.INVDATA.Define("QTY_ONHAND",Float,QTY_ONHAND)
+Variable.UDT.INVDATA.Define("QTY_REQUIRED",Float,QTY_REQUIRED)
+Variable.UDT.INVDATA.Define("FLAG_INACTIVE",String,FLAG_INACTIVE)
+Variable.UDT.INVDATA.Define("GSSPART",String,GSSPART)
+Variable.UDT.INVDATA.Define("DISPLAY_PART",String,DISPLAY_PART)
+Variable.UDT.INVDATA.Define("DISPLAY_REV",String,DISPLAY_REV)
+Variable.UDT.INVDATA.Define("CUST_NO",String,CUST_NO)
+Variable.UDT.INVDATA.Define("DISPLAY_CUST_PART",String,DISPLAY_CUST_PART)
+Variable.UDT.INVDATA.Define("DISPLAY_MFG_PART",String,DISPLAY_MFG_PART)
+Variable.UDT.INVDATA.Define("USER_PART",String,USER_PART)
+Variable.UDT.INVDATA.Define("DISPLAY_USER_PART",String,DISPLAY_USER_PART)
+Variable.UDT.UserName.Define("Part",String,Part)
+Variable.UDT.UserName.Define("Long_Part",String,Long_part)
+Variable.UDT.MFGName.Define("Part",String,Part)
+Variable.UDT.MFGName.Define("Long_Part",String,Long_part)
+Variable.UDT.CustName.Define("Part",String,Part)
+Variable.UDT.CustName.Define("Long_part",String,Long_part)
+Variable.uGlobal.uINVDATA.Declare("INVDATA")
+Variable.uGlobal.uCustName.Declare("CUSTNAME")
+Variable.uGlobal.uUSERNAME.Declare("USERNAME")
+Variable.uGlobal.uMFGNAME.Declare("MFGNAME")
+
+Variable.UDT.BOMDATA.Define("DESCRIPTION",String,DESCRIPTION)
+Variable.UDT.BOMDATA.Define("SEQUENCE_BOM",String,SEQUENCE_BOM)
+Variable.UDT.BOMDATA.Define("BOM_PART",String,BOM_PART)
+Variable.UDT.BOMDATA.Define("INSERT_BOM",String,INSERT_BOM)
+Variable.UDT.BOMDATA.Define("FLAG_INACTIVE",String,FLAG_INACTIVE)
+Variable.UDT.BOMDATA.Define("DISPLAY_PARENT",String,DISPLAY_PARENT)
+Variable.UDT.BOMDATA.Define("DISPLAY_REV",String,DISPLAY_REV)
+Variable.UDT.BOMDATA.Define("GSSPARENT",String,GSSPARENT)
+Variable.uGlobal.uBOMDATA.Declare("BOMDATA")
+
+Variable.uGlobal.uRDATA.Declare("RDATA")
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+'Author: BixRB
+'Combination of three scripts to alter Browser info for Long Parts
+F.Intrinsic.Control.Try
+V.Local.sFile.Declare
+V.Local.bRunning.Declare
+
+F.Intrinsic.Control.If(V.Caller.Hook,=,38130)
+	F.Global.Registry.ReadValue(V.Caller.User,V.Caller.CompanyCode,"GCG_6309",6309,1000,0,False,V.Local.bRunning)
+	F.Intrinsic.Control.If(V.Local.bRunning)
+		'Program is running, exit
+		F.Intrinsic.Control.End
+	F.Intrinsic.Control.EndIf
+	F.Global.Registry.AddValue(V.Caller.User,V.Caller.CompanyCode,"GCG_6309",6309,1000,False,"RUNNING",True,0,0,1/1/1900,12:00:00 AM,"")
+F.Intrinsic.Control.EndIf
+F.Intrinsic.UI.InvokeWaitDialog("Processing Inventory Browser","Long Part Browser Conversion")
+F.Intrinsic.Control.CallSub(BRW_INVENTORY)
+F.Intrinsic.UI.ChangeWaitStatus("Processing Router Browser")
+F.Intrinsic.Control.CallSub(BRW_ROUTER)
+F.Intrinsic.UI.ChangeWaitStatus("Processing BOM Browser")
+F.Intrinsic.Control.CallSub(BRW_BOM)
+F.Intrinsic.UI.CloseWaitDialog
+F.Intrinsic.Control.If(V.Caller.Hook,=,38130)
+	F.Global.Registry.AddValue(V.Caller.User,V.Caller.CompanyCode,"GCG_6309",6309,1000,False,"NOT RUNNING",False,0,0,1/1/1900,12:00:00 AM,"")
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.If(V.Caller.Hook,=,38130)
+		F.Intrinsic.Control.CallSub(ErrorLog,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine,"FolderName","6309")
+		F.Global.Registry.AddValue(V.Caller.User,V.Caller.CompanyCode,"GCG_6309",6309,1000,False,"NOT RUNNING",False,0,0,1/1/1900,12:00:00 AM,"")
+	F.Intrinsic.Control.Else
+		F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.EndTry
+Program.Sub.Main.End
+
+Program.Sub.BRW_ROUTER.Start
+F.Intrinsic.Control.Try
+V.Local.sError.Declare
+V.Local.sQuery.Declare(String)
+V.Local.sRet.Declare(String)
+'V.Local.sGSSPart.Declare(String)
+'V.Local.sPart.Declare(String)
+V.Local.sRev.Declare(String)
+V.Local.sRouter.Declare(String)
+'V.Local.sRouter_Suffix.Declare(String)
+
+V.Local.iCount.Declare(Long)
+'V.Local.iCount2.Declare(Long)
+'V.Local.iLength.Declare(Long)
+
+V.Local.bIsInString.Declare(Boolean)
+
+F.ODBC.Connection!conx.OpenCompanyConnection
+'F.ODBC.Connection!conx.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+
+F.ODBC.Connection!conx.Execute("DELETE FROM ATG_BRW_ROUTER")
+
+v.Local.sQuery.Set("SELECT DISTINCT CASE WHEN INV_LXR.DISPLAY_PART IS NULL THEN V_ROUTER_HEADER.ROUTER ELSE INV_LXR.DISPLAY_PART END AS DISPLAY_RTR, ")
+f.Intrinsic.String.Concat(v.Local.sQuery,"INV_LXR.DISPLAY_REV, V_ROUTER_HEADER.DESCRIPTION_ROUTER AS DESCRIPTION, ", V.Local.sQuery) 
+f.Intrinsic.String.Concat(v.Local.sQuery,"V_ROUTER_HEADER.ROUTER AS GSSROUTER, INV_LXR.DISPLAY_REV AS ROUTER_SUFFIX, ROUTER_SUPP_HDR.INACTIVE AS FLAG_INACTIVE ",v.Local.sQuery)
+f.Intrinsic.String.Concat(v.Local.sQuery,"FROM V_ROUTER_HEADER LEFT OUTER JOIN INV_LXR ON INV_LXR.GSS_PART = V_ROUTER_HEADER.ROUTER ",v.Local.sQuery)
+f.Intrinsic.String.Concat(v.Local.sQuery,"LEFT OUTER JOIN ROUTER_SUPP_HDR ON ROUTER_SUPP_HDR.RTR_NUM = V_ROUTER_HEADER.ROUTER",v.Local.sQuery)
+	
+F.ODBC.Connection!conx.OpenRecordsetRO("RSTGetRouter",V.Local.sQuery)
+
+F.Intrinsic.Variable.LoadUDTFromRecordset("conx","RSTGetRouter","V.uGlobal.uRData",False)
+F.ODBC.conx!RSTGetRouter.Close
+
+F.Intrinsic.Variable.UDTMultiQuickSort(V.uGlobal.uRDATA!GSSROUTER,True)
+F.Intrinsic.Control.For(V.Local.iCount,0,V.uGlobal.uRDATA.uBound,1)
+	F.Intrinsic.Control.If(V.uGlobal.uRDATA.UBound,>,1)
+		F.Intrinsic.UI.ChangeWaitStatus("Processing Router Browser",V.Local.iCount,0,V.uGlobal.uRDATA.UBound)
+	F.Intrinsic.Control.EndIf
+	V.Local.sRouter.Set(V.uGlobal.uRDATA(V.Local.iCount)!DISPLAY_RTR)
+	F.Intrinsic.String.Replace(V.Local.sRouter,"        ","||",V.Local.sRouter)
+	F.Intrinsic.String.IsInString(V.Local.sRouter,"||",True,V.Local.bIsInString)
+	F.Intrinsic.Control.If(V.Local.bIsInString,=,True)
+		F.Intrinsic.String.Split(V.Local.sRouter,"||",V.Local.sRet)
+		V.Local.sRev.Set(V.Local.sRet(1))
+		V.uGlobal.uRDATA(V.Local.iCount)!Display_REV.Set(V.Local.sRev.Trim)
+		V.uGlobal.uRDATA(V.Local.iCount)!DISPLAY_RTR.Set(V.Local.sRet(0).Trim)		
+	F.Intrinsic.Control.Else
+		V.uGlobal.uRDATA(V.Local.iCount)!DISPLAY_RTR.Set(V.Local.sRouter)
+	F.Intrinsic.Control.EndIf
+
+	F.Intrinsic.String.Replace(V.uGlobal.uRDATA(V.Local.iCount)!DESCRIPTION,"'","''",V.uGlobal.uRDATA(V.Local.iCount)!DESCRIPTION)
+	F.Intrinsic.String.Replace(V.uGlobal.uRDATA(V.Local.iCount)!DISPLAY_RTR,"'","''",V.uGlobal.uRDATA(V.Local.iCount)!DISPLAY_RTR)
+	F.Intrinsic.String.Replace(V.uGlobal.uRDATA(V.Local.iCount)!GSSROUTER,"'","''",V.uGlobal.uRDATA(V.Local.iCount)!GSSROUTER)
+	F.Intrinsic.String.Replace(V.uGlobal.uRDATA(V.Local.iCount)!ROUTER_SUFFIX,"'","''",V.uGlobal.uRDATA(V.Local.iCount)!ROUTER_SUFFIX)
+
+    V.Local.sQuery.Set("")
+	F.Intrinsic.String.Concat("INSERT INTO ATG_BRW_ROUTER VALUES('",V.uGlobal.uRDATA(V.Local.iCount)!DISPLAY_RTR,"','",V.uGlobal.uRDATA(v.local.iCount)!DISPLAY_REV,"','",v.Local.sQuery)
+	f.Intrinsic.String.Concat(v.Local.sQuery,V.uGlobal.uRDATA(V.Local.iCount)!DESCRIPTION,"','",V.uGlobal.uRDATA(V.Local.iCount)!GSSROUTER,"','",V.uGlobal.uRDATA(V.Local.iCount)!ROUTER_SUFFIX,v.Local.sQuery)
+	f.Intrinsic.String.Concat(v.Local.sQuery,"','",V.uGlobal.uRDATA(V.Local.iCount)!FLAG_INACTIVE,"')",V.Local.sQuery)
+	
+	F.ODBC.Connection!conx.Execute(V.Local.sQuery)
+F.Intrinsic.Control.Next(V.Local.iCount)
+
+'F.Intrinsic.String.Concat("SELECT * FROM ATG_BRW_ROUTER","",V.Local.sQuery)
+'F.ODBC.Connection!conx.OpenRecordsetRW("rstLoadTable",V.Local.sQuery)
+'F.Intrinsic.Variable.SaveUDTToRecordset("conx","rstLoadTable","V.uGlobal.uRDATA")
+'F.ODBC.conx!rstLoadTable.Close
+F.ODBC.Connection!conx.Close
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.UI.CloseWaitDialog
+	F.Intrinsic.Control.If(V.Caller.Hook,=,38130)
+		F.Intrinsic.Control.CallSub(ErrorLog,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine,"FolderName","6309")
+		F.Global.Registry.AddValue(V.Caller.User,V.Caller.CompanyCode,"GCG_6309",6309,1000,False,"NOT RUNNING",False,0,0,1/1/1900,12:00:00 AM,"")
+	F.Intrinsic.Control.Else
+		F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+	F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.End
+F.Intrinsic.Control.EndTry
+Program.Sub.BRW_ROUTER.End
+
+Program.Sub.BRW_INVENTORY.Start
+F.Intrinsic.Control.Try
+V.Local.sError.Declare
+V.Local.sQuery.Declare
+V.Local.sRet.Declare
+V.Local.sGSSPart.Declare
+V.Local.sPart.Declare
+V.Local.sRev.Declare
+'V.Local.sFilter.Declare
+
+V.Local.iCount.Declare
+'V.Local.iCount2.Declare
+'V.Local.iLength.Declare
+V.Local.iIndex.Declare(Long)
+
+V.Local.bIsInString.Declare
+
+F.ODBC.Connection!conx.OpenCompanyConnection
+'F.ODBC.Connection!conx.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+
+F.ODBC.Connection!conx.Execute("DELETE FROM ATG_BRW_INVENTORY")
+
+F.Intrinsic.String.Concat("SELECT INV_LXR.DISPLAY_PART, INV_LXR.DISPLAY_REV, Inventory_MSTR.PART AS GSSPART, Inventory_MSTR.LOCATION, Inventory_MSTR.DESCRIPTION, Inventory_MSTR.QTY_ONHAND, Inventory_MSTR.QTY_REQUIRED,","",V.Local.sQuery)
+F.Intrinsic.String.Concat(V.Local.sQuery," (Inventory_MSTR.QTY_ONORDER_WO + Inventory_MSTR.QTY_ONORDER_PO) AS ON_ORDER, ",V.Local.sQuery)
+F.Intrinsic.String.Concat(V.Local.sQuery," (Inventory_MSTR.QTY_ONHAND + Inventory_MSTR.QTY_ONORDER_PO + Inventory_MSTR.QTY_ONORDER_WO - Inventory_MSTR.QTY_REQUIRED) AS NET, ",V.Local.sQuery)
+F.Intrinsic.String.Concat(V.Local.sQuery," Inventory_MSTR.AMT_COST AS COST,INV_CROSS_REF.USER_DEFINED_PART as User_Part,INV_CROSS_REF.USER_DEFINED_PART as DISPLAY_User_Part, ",V.Local.sQuery)
+F.Intrinsic.String.Concat(V.Local.sQuery," INV_CROSS_REF.CUSTOMER AS CUST_NO, INV_CROSS_REF.CUSTOMER, INV_CROSS_REF.CUSTOMER_PART,INV_CROSS_REF.CUSTOMER_PART as DISPLAY_CUST_PART, ",V.Local.sQuery)
+F.Intrinsic.String.Concat(V.Local.sQuery," INV_CROSS_REF.VENDOR, INV_CROSS_REF.MFG_PART,INV_CROSS_REF.MFG_PART as DISPLAY_MFG_PART, INV_CROSS_REF.MFG_NAME, Inventory_MSTR.FLAG_INACTIVE FROM Inventory_MSTR",V.Local.sQuery)
+F.Intrinsic.String.Concat(V.Local.sQuery," LEFT OUTER JOIN INV_LXR ON INV_LXR.GSS_PART = Inventory_MSTR.PART LEFT OUTER JOIN INV_CROSS_REF ON INV_CROSS_REF.PART = Inventory_MSTR.PART AND INV_CROSS_REF.LOCATION = Inventory_MSTR.LOCATION",V.Local.sQuery)
+F.Intrinsic.String.Concat(V.Local.sQuery," ORDER BY GSSPART,Inventory_MSTR.LOCATION","",V.Local.sQuery)
+
+'F.Data.DataTable.CreateFromSQL("dtGetParts","conx",V.Local.sQuery,False)
+F.ODBC.Connection!conx.OpenRecordsetRO("RSTGetParts",V.Local.sQuery)
+F.Intrinsic.Variable.LoadUDTFromRecordset("conx","RSTGetParts","V.uGlobal.uINVData",False)
+F.ODBC.conx!RSTGetParts.Close
+
+V.Local.sQuery.Set("SELECT Part,Long_part FROM LPART_CUST_XREF")
+'F.Data.DataTable.CreateFromSQL("dtGetCNAME","conx",V.Local.sQuery,False)
+'F.Data.DataView.Create("dtGetCNAME","dvSearch")
+F.ODBC.Connection!conx.OpenRecordsetRO("RSTGetCNAME",V.Local.sQuery)
+F.Intrinsic.Variable.LoadUDTFromRecordset("conx","RSTGetCNAME","V.uGlobal.uCUSTNAME",False)
+F.ODBC.conx!RSTGetCNAME.Close
+
+V.Local.sQuery.Set("SELECT Part,Long_part FROM LPART_USER_XREF")
+'F.Data.DataTable.CreateFromSQL("dtGetUNAME","conx",V.Local.sQuery,False)
+'F.Data.DataView.Create("dtGetUNAME","dvSearch")
+F.ODBC.Connection!conx.OpenRecordsetRO("RSTGetUNAME",V.Local.sQuery)
+F.Intrinsic.Variable.LoadUDTFromRecordset("conx","RSTGetUNAME","V.uGlobal.uUSERNAME",False)
+F.ODBC.conx!RSTGetUNAME.Close
+
+V.Local.sQuery.Set("SELECT Part,Long_part FROM LPART_MFG_XREF")
+'F.Data.DataTable.CreateFromSQL("dtGetMNAME","conx",V.Local.sQuery,False)
+'F.Data.DataView.Create("dtGetMNAME","dvSearch")
+F.ODBC.Connection!conx.OpenRecordsetRO("RSTGetMNAME",V.Local.sQuery)
+F.Intrinsic.Variable.LoadUDTFromRecordset("conx","RSTGetMNAME","V.uGlobal.uMFGNAME",False)
+F.ODBC.conx!RSTGetMNAME.Close
+
+F.Intrinsic.Variable.UDTMultiQuickSort(V.uGlobal.uINVDATA!DISPLAY_PART,True)
+
+F.Intrinsic.Variable.UDTMultiQuickSort(V.uGlobal.uCustName!Part,True)
+F.Intrinsic.Variable.UDTMultiQuickSort(V.uGlobal.uUSERNAME!Part,True)
+F.Intrinsic.Variable.UDTMultiQuickSort(V.uGlobal.uMFGName!Part,True)
+
+'F.Intrinsic.Control.For(V.Local.iCount,0,V.DataTable.dtGetParts.RowCount--,1)
+F.Intrinsic.Control.For(V.Local.iCount,0,V.uGlobal.uINVDATA.uBound,1)
+'	F.Intrinsic.Control.If(V.DataTable.dtGetParts.RowCount--,>,1)
+	F.Intrinsic.Control.If(V.uGlobal.uINVDATA.UBound,>,1)
+'		F.Intrinsic.UI.ChangeWaitStatus("Processing Inventory Browser 1/2",V.Local.iCount,0,V.DataTable.dtGetParts.RowCount--)
+		F.Intrinsic.UI.ChangeWaitStatus("Processing Inventory Browser 1/2",V.Local.iCount,0,V.uGlobal.uINVDATA.UBound)
+	F.Intrinsic.Control.EndIf
+'	F.Intrinsic.Control.If(V.DataTable.dtGetParts(V.Local.iCount).DISPLAY_PART!FieldVal,=,"")
+	F.Intrinsic.Control.If(V.uGlobal.uINVDATA(V.Local.iCount)!DISPLAY_PART.Length,=,0)
+'		V.Local.sGSSPART.Set(V.DataTable.dtGetParts(V.Local.iCount).GSSPART!FieldVal)
+		V.Local.sGSSPART.Set(V.uGlobal.uINVDATA(V.Local.iCount)!GSSPART)
+		F.Intrinsic.String.Replace(V.Local.sGSSPART,"        ","||",V.Local.sGSSPART)
+		F.Intrinsic.String.IsInString(V.Local.sGSSPART,"||",True,V.Local.bIsInString)
+		F.Intrinsic.Control.If(V.Local.bIsInString,=,True)
+			F.Intrinsic.String.Split(V.Local.sGSSPART,"||",V.Local.sRet)
+			V.Local.sRev.Set(V.Local.sRet(1))
+'			F.Data.DataTable.SetValue("dtGetParts",V.Local.iCount,"DISPLAY_REV",V.Local.sRev,"DISPLAY_PART",V.Local.sRet(0))
+			V.uGlobal.uINVDATA(V.Local.iCount)!DISPLAY_REV.Set(V.Local.sRev)
+			V.uGlobal.uINVDATA(V.Local.iCount)!DISPLAY_PART.Set(V.Local.sRet(0))
+		F.Intrinsic.Control.Else
+			F.Intrinsic.Control.If(V.Local.sGSSPART.Length,>,17)
+				F.Intrinsic.String.Left(V.Local.sGSSPART,17,V.Local.sPart)
+				F.Intrinsic.String.Mid(V.Local.sGSSPART,18,10,V.Local.sRev)
+'				F.Data.DataTable.SetValue("dtGetParts",V.Local.iCount,"DISPLAY_REV",V.Local.sRev,"DISPLAY_PART",V.Local.sPart)
+				V.uGlobal.uINVDATA(V.Local.iCount)!DISPLAY_REV.Set(V.Local.sRev)
+				V.uGlobal.uINVDATA(V.Local.iCount)!DISPLAY_PART.Set(V.Local.sPart)
+			F.Intrinsic.Control.Else
+'				F.Data.DataTable.SetValue("dtGetParts",V.Local.iCount,"DISPLAY_PART",V.Local.sGSSPART)
+				V.uGlobal.uINVDATA(V.Local.iCount)!DISPLAY_PART.Set(V.Local.sGSSPART)
+			F.Intrinsic.Control.EndIf
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Next(V.Local.iCount)
+
+'F.Intrinsic.Control.For(V.Local.iCount,0,V.DataTable.dtGetParts.RowCount--,1)
+F.Intrinsic.Control.For(V.Local.iCount,0,V.uGlobal.uINVDATA.uBound,1)
+'	F.Intrinsic.Control.If(V.DataTable.dtGetParts.RowCount--,>,1)
+	F.Intrinsic.Control.If(V.uGlobal.uINVDATA.UBound,>,1)
+'		F.Intrinsic.UI.ChangeWaitStatus("Processing Inventory Browser 2/2",V.Local.iCount,0,V.DataTable.dtGetParts.RowCount--)
+		F.Intrinsic.UI.ChangeWaitStatus("Processing Inventory Browser 2/2",V.Local.iCount,0,V.uGlobal.uINVDATA.UBound)
+	F.Intrinsic.Control.EndIf
+'	F.Intrinsic.Control.If(V.DataTable.dtGetParts(V.Local.iCount).CUSTOMER!FieldVal,!=,"")
+	F.Intrinsic.Control.If(V.uGlobal.uINVDATA(V.Local.iCount)!CUSTOMER.Length,>,0)
+'		F.Intrinsic.String.Concat("SELECT NAME_CUSTOMER FROM V_CUSTOMER_MASTER WHERE CUSTOMER = '",V.DataTable.dtGetParts(V.Local.iCount).CUST_NO!FieldVal,"'",V.Local.sQuery)
+		F.Intrinsic.String.Concat("SELECT NAME_CUSTOMER FROM V_CUSTOMER_MASTER WHERE CUSTOMER = '",V.uGlobal.uINVDATA(V.Local.iCount)!CUST_NO,"'",V.Local.sQuery)
+		F.ODBC.Connection!conx.OpenRecordsetRO("rstCustName",V.Local.sQuery)
+		F.Intrinsic.Control.If(V.ODBC.Conx!rstCustName.EOF,<>,True)
+			V.uGlobal.uINVDATA(V.Local.iCount)!CUSTOMER.set(V.ODBC.Conx!rstCustName.FieldVal!NAME_CUSTOMER)
+		F.Intrinsic.Control.EndIf
+		F.ODBC.Conx!rstCustName.Close
+	F.Intrinsic.Control.EndIf
+	
+'	F.Intrinsic.String.Build("[Part] = '{0}'",V.DataTable.dtGetParts(V.Local.iCount).USER_PART!FieldVal,V.Local.sFilter)
+'	F.Data.DataView.SetFilter("dtGetUNAME","dvSearch",V.Local.sFilter)
+	F.Intrinsic.Variable.UDTSeek(V.uGlobal.uUSERNAME!Part,V.uGlobal.uINVDATA(V.Local.iCount)!USER_PART,4,V.Local.iIndex)
+'	F.Intrinsic.Control.If(V.DataView.dtGetUNAME!dvSearch.RowCount,>,0)
+	F.Intrinsic.Control.If(V.Local.iIndex,<>,0)
+'		F.Data.DataTable.SetValue("dtGetParts",V.Local.iCount,"DISPLAY_USER_PART",V.DataView.dtGetUNAME!dvSearch(0).Long_PART!FieldVal)
+		V.uGlobal.uINVDATA(V.Local.iCount)!DISPLAY_USER_PART.set(V.uGlobal.uUSERName(v.Local.iIndex)!Long_PART)
+	F.Intrinsic.Control.EndIf
+	
+'	F.Data.DataView.SetFilter("dtGetMNAME","dvSearch",V.Local.sFilter)
+	F.Intrinsic.Variable.UDTSeek(V.uGlobal.uMFGNAME!Part,V.uGlobal.uINVDATA(V.Local.iCount)!MFG_PART,4,V.Local.iIndex)
+'	F.Intrinsic.Control.If(V.DataView.dtGetUNAME!dvSearch.RowCount,>,0)
+	F.Intrinsic.Control.If(V.Local.iIndex,<>,0)
+'		F.Data.DataTable.SetValue("dtGetParts",V.Local.iCount,"DISPLAY_MFG_PART",V.DataView.dtGetMNAME!dvSearch(0).Long_PART!FieldVal)
+		V.uGlobal.uINVDATA(V.Local.iCount)!DISPLAY_MFG_PART.set(V.uGlobal.uMFGName(v.Local.iIndex)!Long_PART)
+	F.Intrinsic.Control.EndIf
+	
+'	F.Data.DataView.SetFilter("dtGetCNAME","dvSearch",V.Local.sFilter)
+	F.Intrinsic.Variable.UDTSeek(V.uGlobal.uCUSTNAME!Part,V.uGlobal.uINVDATA(V.Local.iCount)!CUSTomer_PART,4,V.Local.iIndex)
+'	F.Intrinsic.Control.If(V.DataView.dtGetCNAME!dvSearch.RowCount,>,0)
+	F.Intrinsic.Control.If(V.Local.iIndex,<>,0)
+'		F.Data.DataTable.SetValue("dtGetParts",V.Local.iCount,"DISPLAY_CUST_PART",V.DataView.dtGetCNAME!dvSearch(0).Long_PART!FieldVal)
+		V.uGlobal.uINVDATA(V.Local.iCount)!DISPLAY_CUST_PART.set(V.uGlobal.uCUSTName(v.Local.iIndex)!Long_PART)
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Next(V.Local.iCount)
+
+'F.Data.DataTable.SaveToDB("dtGetParts","conx","ATG_BRW_INVENTORY","",128)
+F.Intrinsic.String.Concat("SELECT * FROM ATG_BRW_INVENTORY","",V.Local.sQuery)
+F.ODBC.Connection!conx.OpenRecordsetRW("rstLoadTable",V.Local.sQuery)
+F.Intrinsic.Variable.SaveUDTToRecordset("conx","rstLoadTable","V.uGlobal.uINVDATA")
+F.ODBC.conx!rstLoadTable.Close
+F.ODBC.Connection!conx.Close
+
+'F.Data.DataTable.Close("dtGetParts")
+'F.Data.DataTable.Close("dtGetCNAME")
+'F.Data.DataTable.Close("dtGetUNAME")
+'F.Data.DataTable.Close("dtGetMNAME")
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.UI.CloseWaitDialog
+	F.Intrinsic.Control.If(V.Caller.Hook,=,38130)
+		F.Intrinsic.Control.CallSub(ErrorLog,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine,"FolderName","6309")
+		F.Global.Registry.AddValue(V.Caller.User,V.Caller.CompanyCode,"GCG_6309",6309,1000,False,"NOT RUNNING",False,0,0,1/1/1900,12:00:00 AM,"")
+	F.Intrinsic.Control.Else
+		F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+	F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.End
+F.Intrinsic.Control.EndTry
+Program.Sub.BRW_INVENTORY.End
+
+Program.Sub.BRW_BOM.Start
+F.Intrinsic.Control.Try
+V.Local.sQuery.Declare(String)
+v.Local.sError.Declare(String)
+V.Local.sRet.Declare(String)
+V.Local.sParent.Declare(String)
+V.Local.sSequence.Declare(String)
+V.Local.sRev.Declare(String)
+V.Local.iQuantity.Declare(Float)
+
+V.Local.iCount.Declare
+V.Local.iCount2.Declare
+V.Local.iLength.Declare
+
+V.Local.bIsInString.Declare(Boolean)
+
+'F.Intrinsic.Control.SetErrorHandler("ADD_ERR")
+'F.Intrinsic.Control.ClearErrors
+
+F.ODBC.Connection!conx.OpenCompanyConnection
+'F.ODBC.Connection!conx.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+
+F.ODBC.Connection!conx.Execute("DELETE FROM ATG_BRW_BOM")
+
+f.Intrinsic.String.Concat(v.Local.sQuery,"SELECT INV_LXR.DISPLAY_PART AS DISPLAY_PARENT, BOM_MSTR.PARENT AS GSSPARENT,INV_LXR.DISPLAY_REV,",v.Local.sQuery)
+f.Intrinsic.String.Concat(v.Local.sQuery,"BOM_MSTR.SEQUENCE_BOM, BOM_ENG.DESCRIPTION, BOM_MSTR.INSERT_BOM, BOM_MSTR.PART AS BOM_PART, BOM_MSTR.INACTIVE as FLAG_INACTIVE ",v.Local.sQuery)
+f.Intrinsic.String.Concat(v.Local.sQuery,"FROM BOM_MSTR LEFT OUTER JOIN BOM_ENG ON BOM_MSTR.PARENT = BOM_ENG.PART LEFT OUTER JOIN INV_LXR ON INV_LXR.GSS_PART = BOM_MSTR.PARENT ", v.Local.sQuery)
+f.Intrinsic.String.Concat(v.Local.sQuery," WHERE BOM_MSTR.SEQUENCE_BOM = '0000' AND BOM_MSTR.INACTIVE = 0 AND GSSPARENT <> '' ORDER BY PARENT",v.Local.sQuery)
+
+F.ODBC.Connection!conx.OpenRecordsetRO("RSTGetBOM",V.Local.sQuery)
+F.Intrinsic.Variable.LoadUDTFromRecordset("conx","RSTGetBOM","V.uGlobal.uBOMDATA",False)
+F.ODBC.conx!RSTGetBOM.Close
+
+F.Intrinsic.Variable.UDTMultiQuickSort(V.uGlobal.uBOMDATA!DISPLAY_PARENT,True)
+F.Intrinsic.Control.For(V.Local.iCount,0,V.uGlobal.uBOMDATA.uBound,1)
+	F.Intrinsic.Control.If(V.uGlobal.uBOMDATA.UBound,>,1)
+		F.Intrinsic.UI.ChangeWaitStatus("Processing BOM Browser",V.Local.iCount,0,V.uGlobal.uBOMDATA.UBound)
+	F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.If(V.uGlobal.uBOMDATA(V.Local.iCount)!DISPLAY_PARENT.Length,=,0)
+		V.Local.sParent.Set(V.uGlobal.uBOMDATA(V.Local.iCount)!GSSPARENT)
+		F.Intrinsic.String.IsInString(V.Local.sParent,"||",True,V.Local.bIsInString)
+		F.Intrinsic.Control.If(V.Local.bIsInString,=,True)
+			F.Intrinsic.String.Split(V.Local.sParent,"||",V.Local.sRet)
+			V.Local.sRev.Set(V.Local.sRet(1))
+			V.uGlobal.uBOMDATA(V.Local.iCount)!DISPLAY_REV.Set(V.Local.sRev)
+			V.uGlobal.uBOMDATA(V.Local.iCount)!DISPLAY_PARENT.Set(V.Local.sRet(0))
+		F.Intrinsic.Control.Else
+			F.Intrinsic.Control.If(V.Local.sParent.Length,>,17)
+				F.Intrinsic.String.Left(V.Local.sParent,17,V.Local.sRet)
+				F.Intrinsic.String.Mid(V.Local.sParent,18,10,V.Local.sRev)
+				V.uGlobal.uBOMDATA(V.Local.iCount)!DISPLAY_REV.Set(V.Local.sRev)
+				V.uGlobal.uBOMDATA(V.Local.iCount)!DISPLAY_PARENT.Set(V.Local.sRet)
+			F.Intrinsic.Control.Else
+				V.uGlobal.uBOMDATA(V.Local.iCount)!DISPLAY_PARENT.Set(V.Local.sParent)
+			F.Intrinsic.Control.EndIf
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.EndIf
+
+	'singles quotes
+	F.Intrinsic.String.Replace(V.uGlobal.uBOMDATA(V.Local.iCount)!DESCRIPTION,"'","''",V.uGlobal.uBOMDATA(V.Local.iCount)!DESCRIPTION)
+	F.Intrinsic.String.Replace(V.uGlobal.uBOMDATA(V.Local.iCount)!BOM_PART,"'","''",V.uGlobal.uBOMDATA(V.Local.iCount)!BOM_PART)
+	F.Intrinsic.String.Replace(V.uGlobal.uBOMDATA(V.Local.iCount)!DISPLAY_PARENT,"'","''",V.uGlobal.uBOMDATA(V.Local.iCount)!DISPLAY_PARENT)
+	F.Intrinsic.String.Replace(V.uGlobal.uBOMDATA(V.Local.iCount)!DISPLAY_REV,"'","''",V.uGlobal.uBOMDATA(V.Local.iCount)!DISPLAY_REV)
+	F.Intrinsic.String.Replace(V.uGlobal.uBOMDATA(V.Local.iCount)!GSSPARENT,"'","''",V.uGlobal.uBOMDATA(V.Local.iCount)!GSSPARENT)
+	F.Intrinsic.String.Replace(V.uGlobal.uBOMDATA(V.Local.iCount)!INSERT_BOM,"'","''",V.uGlobal.uBOMDATA(V.Local.iCount)!INSERT_BOM)	
+	F.Intrinsic.String.Replace(V.uGlobal.uBOMDATA(V.Local.iCount)!SEQUENCE_BOM,"'","''",V.uGlobal.uBOMDATA(V.Local.iCount)!SEQUENCE_BOM)	
+		
+	'get the empty descriptions
+	F.Intrinsic.Control.If(V.uGlobal.uBOMDATA(v.Local.iCount)!DESCRIPTION,=,"")
+		F.Intrinsic.String.Build("Select DESCRIPTION from INVENTORY_MSTR where Part='{0}'",V.uGlobal.uBOMDATA(v.Local.iCount)!GSSPARENT,V.Local.sQuery)
+		F.ODBC.Connection!conx.ExecuteAndReturn(V.Local.sQuery,V.uGlobal.uBOMDATA(v.Local.iCount)!DESCRIPTION)
+	F.Intrinsic.Control.Endif
+
+	'tracking the value
+	F.Intrinsic.String.Concat("INSERT INTO  ATG_BRW_BOM values('",V.uGlobal.uBOMDATA(V.Local.iCount)!DISPLAY_PARENT,"','",V.uGlobal.uBOMDATA(v.local.iCount)!DISPLAY_REV,"','",v.Local.sQuery)
+	f.Intrinsic.String.Concat(v.Local.sQuery,V.uGlobal.uBOMDATA(v.local.iCount)!GSSPARENT,"','",V.uGlobal.uBOMDATA(V.Local.iCount)!SEQUENCE_BOM,"','",V.uGlobal.uBOMDATA(V.Local.iCount)!DESCRIPTION,"','",v.Local.sQuery)
+	f.Intrinsic.String.Concat(v.Local.sQuery,V.uGlobal.uBOMDATA(V.Local.iCount)!INSERT_BOM,"','",V.uGlobal.uBOMDATA(V.Local.iCount)!BOM_PART,"','",V.uGlobal.uBOMDATA(V.Local.iCount)!FLAG_INACTIVE,"')",V.Local.sQuery)
+
+	F.ODBC.Connection!conx.Execute(V.Local.sQuery)
+F.Intrinsic.Control.Next(V.Local.iCount)
+
+F.ODBC.Connection!conx.Close
+
+'F.Intrinsic.Control.Label("ADD_ERR")
+'F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+'	Function.Intrinsic.String.Concat("Project: Maint_ATG_BRW_BOM.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+'	F.Intrinsic.UI.Msgbox(V.Local.sError)
+'F.Intrinsic.Control.EndIF
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.UI.CloseWaitDialog
+	F.Intrinsic.Control.If(V.Caller.Hook,=,38130)
+		F.Intrinsic.Control.CallSub(ErrorLog,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine,"FolderName","6309")
+		F.Global.Registry.AddValue(V.Caller.User,V.Caller.CompanyCode,"GCG_6309",6309,1000,False,"NOT RUNNING",False,0,0,1/1/1900,12:00:00 AM,"")
+	F.Intrinsic.Control.Else
+		F.Intrinsic.Control.CallSub(ErrorMessage,"ScriptFile",V.Caller.ScriptFile,"CurrentSubroutine",V.Ambient.CurrentSubroutine)
+	F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.End
+F.Intrinsic.Control.EndTry
+Program.Sub.BRW_BOM.End
+
+Program.Sub.ErrorLog.Start
+'Arguments: ScriptFile, CurrentSubroutine, FolderName
+V.Local.sError.Declare
+V.Local.sFile.Declare
+V.Local.sFileString.Declare
+V.Local.bExists.Declare
+F.Intrinsic.String.Build("Project: {0}{1}{1}Subroutine: {2}{1}Error Occurred {3} with description {4}{1}{1}GAB Version: {5}",V.Args.ScriptFile,V.Ambient.Newline,V.Args.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Ambient.GABVersion,V.Local.sError)
+F.Intrinsic.String.Build("{0}\CUSTOM\{1}\{2}\",V.Caller.GlobalDir,V.Args.FolderName,V.Caller.CompanyCode,V.Local.sFile)
+F.Intrinsic.File.CreateDir(V.Local.sFile)
+F.Intrinsic.String.Build("{0}ERR_LOG_{1}.log",V.Local.sFile,V.Ambient.Date.FormatYYYYMMDD,V.Local.sFile)
+F.Intrinsic.File.Exists(V.Local.sFile,V.Local.bExists)
+F.Intrinsic.Control.If(V.Local.bExists)
+	F.Intrinsic.File.File2String(V.Local.sFile,V.Local.sFileString)
+	F.Intrinsic.String.Build("{0}{1}{1}",V.Local.sFileString,V.Ambient.NewLine,V.Local.sFileString)
+F.Intrinsic.Control.EndIf
+F.Intrinsic.String.Build("{0}Logged: {1}{2}{3}",V.Local.sFileString,V.Ambient.Time.FormatHH:NN:SS,V.Ambient.NewLine,V.Local.sError,V.Local.sFileString)
+F.Intrinsic.File.String2File(V.Local.sFile,V.Local.sFileString)
+Program.Sub.ErrorLog.End
+
+Program.Sub.ErrorMessage.Start
+'Arguments: ScriptFile, CurrentSubroutine
+V.Local.sError.Declare
+F.Intrinsic.String.Build("Project: {0}{1}{1}Subroutine: {2}{1}Error Occurred {3} with description {4}{1}{1}GAB Version: {5}",V.Args.ScriptFile,V.Ambient.Newline,V.Args.CurrentSubroutine,V.Ambient.ErrorNumber,V.Ambient.ErrorDescription,V.Ambient.GABVersion,V.Local.sError)
+F.Intrinsic.UI.Msgbox(V.Local.sError)
+Program.Sub.ErrorMessage.End
+
+Program.Sub.Comments.Start
+${$0$}$OU_MAINT_ATG_BRW_Router$}$SUPERVSR$}$4/9/2015$}$False
+Program.Sub.Comments.End
+
